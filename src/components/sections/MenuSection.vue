@@ -1,15 +1,54 @@
 <script setup lang="ts">
-interface MenuItem { name: string; description?: string; price: string; tags?: string[] }
+import { computed, ref } from 'vue'
+
+interface MenuItem { name: string; description?: string; price: string; sizes?: Array<{ label: string; price: string }>; tags?: string[] }
 interface MenuCategory { name: string; description?: string; items: MenuItem[] }
 
-defineProps<{
+import { displayMenuCategories } from '@apotome/archetype-shared/platform/menuSizes'
+
+const props = withDefaults(defineProps<{
   eyebrow?: string
   title?: string
   intro?: string
   categories: MenuCategory[]
   /** Optional menu PDF or external link. */
   fullMenuUrl?: string
-}>()
+  /** Label on the full-menu button. Owner-editable. */
+  fullMenuLabel?: string
+}>(), { title: 'Menu', fullMenuLabel: 'View full menu' })
+
+/* ── Long-menu handling ──
+   A short menu reads beautifully as one flowing list. A 60-item menu on the
+   same layout becomes an endless single column with a canyon of dotted
+   leaders between short dish names and prices.
+
+   Past a threshold the section switches into "index" mode: a chip rail jumps
+   between courses and items flow into multiple dense columns so the width is
+   actually used. Every course stays open. Nothing on a menu is ever hidden
+   behind a click: a guest scanning for one dish must always be able to find
+   it by scrolling. */
+/* Sized dishes collapse to one line each before anything is counted or
+   rendered: explicit `sizes` merge into the price text, and legacy per-size
+   items ("Pepperoni 12\"" / "Pepperoni 16\"") are grouped the same way. */
+const displayCats = computed(() => displayMenuCategories(props.categories) as MenuCategory[])
+
+const LONG_MENU_ITEMS = 24
+const LONG_CATEGORY_ITEMS = 10
+
+const totalItems = computed(() =>
+  displayCats.value.reduce((n, c) => n + (c.items?.length ?? 0), 0))
+
+const isLongMenu = computed(() =>
+  totalItems.value > LONG_MENU_ITEMS ||
+  displayCats.value.some(c => (c.items?.length ?? 0) > LONG_CATEGORY_ITEMS))
+
+const catId = (name: string) =>
+  'menu-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+/** Jump to a course from the chip rail. */
+function jumpTo(name: string) {
+  document.getElementById(catId(name))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 </script>
 
 <!--
@@ -19,23 +58,48 @@ defineProps<{
   Style 3 · Chalkboard — single dramatic column, oversized numbered courses
 -->
 <template>
-  <section class="ap-section ap-menu">
+  <section class="ap-section ap-menu" data-index>
     <div class="ap-container">
       <div class="ap-section-head">
         <span v-if="eyebrow" class="ap-eyebrow">{{ eyebrow }}</span>
-        <h2>{{ title || 'Menu' }}</h2>
+        <h2>{{ title }}</h2>
         <p v-if="intro" style="color: var(--ap-ink-muted)">{{ intro }}</p>
       </div>
 
+      <!-- Course rail + expand control: only earns its place on a long menu. -->
+      <div v-if="isLongMenu" class="ap-menu__rail">
+        <div class="ap-menu__rail-chips">
+          <button
+            v-for="cat in displayCats"
+            :key="cat.name"
+            type="button"
+            class="ap-menu__rail-chip"
+            @click="jumpTo(cat.name)"
+          >
+            {{ cat.name }}
+            <span class="ap-menu__rail-count">{{ cat.items.length }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- ── Style 1 · Ledger (default) ── -->
-      <div class="ap-menu__ledger">
+      <div class="ap-menu__ledger" :class="{ 'is-long': isLongMenu }">
         <div class="ap-menu__cats">
-          <section v-for="cat in categories" :key="cat.name" class="ap-menu__cat">
+          <section
+            v-for="cat in displayCats"
+            :key="cat.name"
+            :id="catId(cat.name)"
+            class="ap-menu__cat"
+          >
             <header>
-              <h3>{{ cat.name }}</h3>
+              <div class="ap-menu__cat-head">
+                <h3>{{ cat.name }}</h3>
+              </div>
               <p v-if="cat.description">{{ cat.description }}</p>
             </header>
-            <ul>
+            <ul
+              :class="{ 'ap-menu__items--dense': isLongMenu && cat.items.length > 6 }"
+            >
               <li v-for="item in cat.items" :key="item.name" class="ap-menu__item">
                 <div class="ap-menu__line">
                   <span class="ap-menu__name">{{ item.name }}</span>
@@ -54,9 +118,16 @@ defineProps<{
 
       <!-- ── Style 2 · Tasting cards ── -->
       <div class="ap-menu__tasting">
-        <section v-for="cat in categories" :key="cat.name" class="ap-menu__tasting-cat">
+        <section
+          v-for="cat in displayCats"
+          :key="cat.name"
+          :id="catId(cat.name)"
+          class="ap-menu__tasting-cat"
+        >
           <header class="ap-menu__tasting-head">
-            <h3>{{ cat.name }}</h3>
+            <div class="ap-menu__cat-head">
+              <h3>{{ cat.name }}</h3>
+            </div>
             <p v-if="cat.description">{{ cat.description }}</p>
           </header>
           <ul class="ap-menu__tasting-grid">
@@ -76,9 +147,16 @@ defineProps<{
 
       <!-- ── Style 3 · Chalkboard marquee ── -->
       <div class="ap-menu__chalk">
-        <section v-for="cat in categories" :key="cat.name" class="ap-menu__chalk-cat">
+        <section
+          v-for="cat in displayCats"
+          :key="cat.name"
+          :id="catId(cat.name)"
+          class="ap-menu__chalk-cat"
+        >
           <header class="ap-menu__chalk-head">
-            <span class="ap-menu__chalk-marker">— {{ cat.name }} —</span>
+            <div class="ap-menu__chalk-toggle">
+              <span class="ap-menu__chalk-marker">— {{ cat.name }} —</span>
+            </div>
             <p v-if="cat.description">{{ cat.description }}</p>
           </header>
           <ol class="ap-menu__chalk-list">
@@ -98,7 +176,7 @@ defineProps<{
       </div>
 
       <p v-if="fullMenuUrl" class="ap-menu__more">
-        <a :href="fullMenuUrl" target="_blank" rel="noopener" class="ap-btn ap-btn--ghost">View full menu</a>
+        <a :href="fullMenuUrl" target="_blank" rel="noopener" class="ap-btn ap-btn--ghost">{{ fullMenuLabel }}</a>
       </p>
     </div>
   </section>
@@ -111,10 +189,79 @@ defineProps<{
 .ap-menu__chalk { display: none; }
 [data-site-style='1'] .ap-menu__ledger { display: block; }
 
+/* ── Long-menu chrome: course rail + collapsible headers ──── */
+.ap-menu__rail {
+  display: flex; align-items: center; gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.9rem;
+  margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
+  border-bottom: 1px solid var(--ap-line);
+}
+.ap-menu__rail-chips {
+  display: flex; gap: 0.4rem; flex-wrap: wrap;
+  flex: 1; min-width: 0;
+}
+.ap-menu__rail-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--ap-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ap-ink);
+  font: inherit; font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.ap-menu__rail-chip:hover { border-color: var(--ap-ink); background: var(--ap-surface-alt); }
+.ap-menu__rail-count {
+  font-family: var(--ap-font-mono);
+  font-size: 0.66rem;
+  color: var(--ap-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-menu__cat-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.75rem; width: 100%;
+  padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left;
+}
+
+.ap-menu__chalk-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+  width: 100%; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit;
+}
+
 /* ── Style 1 · Ledger ────────────────────────────────────── */
 .ap-menu__cats {
   display: grid; gap: clamp(2rem, 4vw, 3.5rem);
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+/* A long menu stacks courses full-width and flows their items into columns,
+   instead of one endless narrow list beside an empty half-page. */
+.ap-menu__ledger.is-long .ap-menu__cats {
+  grid-template-columns: 1fr;
+  gap: clamp(1.25rem, 2.5vw, 2rem);
+}
+.ap-menu__ledger.is-long .ap-menu__cat {
+  padding-bottom: clamp(1.25rem, 2.5vw, 2rem);
+  border-bottom: 1px solid var(--ap-line);
+}
+.ap-menu__ledger.is-long .ap-menu__cat:last-child { border-bottom: 0; }
+.ap-menu__items--dense {
+  columns: 2;
+  column-gap: clamp(2rem, 5vw, 4.5rem);
+}
+.ap-menu__items--dense > li {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
+@media (min-width: 1100px) {
+  .ap-menu__items--dense { columns: 3; }
+}
+@media (max-width: 700px) {
+  .ap-menu__items--dense { columns: 1; }
 }
 .ap-menu__cat header { margin-bottom: 1.25rem; }
 .ap-menu__cat h3 { margin: 0 0 0.25rem; }

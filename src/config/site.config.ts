@@ -10,7 +10,9 @@ export interface MesaPhotos {
   gallery: PhotoSlot[]
 }
 
-export interface MenuItem { name: string; description?: string; price: string; tags?: string[] }
+/** One size of a dish ("12\"" at "$14"). A dish with `sizes` renders them in place of its single price. */
+export interface MenuItemSize { label: string; price: string }
+export interface MenuItem { name: string; description?: string; price: string; sizes?: MenuItemSize[]; tags?: string[] }
 export interface MenuCategory { name: string; description?: string; items: MenuItem[] }
 
 export interface MesaSiteConfig {
@@ -42,7 +44,9 @@ export interface MesaSiteConfig {
     reviews: { eyebrow: string }
     galleryPage: { eyebrow: string; title: string }
     menuPage: { eyebrow: string; title: string }
-    order: { eyebrow: string; title: string }
+    hero: { ctaPrimary: string; ctaSecondary: string }
+    order: { eyebrow: string; title: string; intro: string }
+    menu: { fullMenuLabel: string }
     visit: { eyebrow: string; title: string; subtitle: string }
     contact: { title: string }
   }
@@ -60,7 +64,7 @@ export const siteConfig: MesaSiteConfig = reactive(({
   blurb: 'A neighborhood kitchen serving Southern Colorado classics with a wood-fired heart.',
   theme: 'atlas',
   swatch: 'vermilion-light',
-  variant: 'essentials',
+  variant: 'portfolio',
   contact: {
     address: '123 Main St, Trinidad, CO 81082',
     phone: '(719) 555-0142',
@@ -83,6 +87,16 @@ export const siteConfig: MesaSiteConfig = reactive(({
       { src: '/photos/interior-01.jpg', alt: 'Bar seating' },
       { src: '/photos/interior-02.jpg', alt: 'Window table' },
       { src: '/photos/team-01.jpg', alt: 'Chef plating' },
+      { src: '/photos/gallery-07.jpg', alt: 'Pizza out of the oven' },
+      { src: '/photos/gallery-08.jpg', alt: 'Table for two' },
+      { src: '/photos/gallery-09.jpg', alt: 'Morning loaves' },
+      { src: '/photos/gallery-10.jpg', alt: 'Plating the lamb' },
+      { src: '/photos/gallery-11.jpg', alt: 'Bar at nine' },
+      { src: '/photos/gallery-12.jpg', alt: 'Valley produce' },
+      { src: '/photos/gallery-13.jpg', alt: 'Patio in July' },
+      { src: '/photos/gallery-14.jpg', alt: 'Olive oil cake' },
+      { src: '/photos/gallery-15.jpg', alt: 'The line on a Friday' },
+      { src: '/photos/gallery-16.jpg', alt: 'The storefront' },
     ],
   },
   story: {
@@ -142,7 +156,13 @@ export const siteConfig: MesaSiteConfig = reactive(({
     reviews: { eyebrow: 'Kind words' },
     galleryPage: { eyebrow: 'Gallery', title: 'The kitchen, the room, the food' },
     menuPage: { eyebrow: 'Eat with us', title: 'The full menu' },
-    order: { eyebrow: 'Order', title: 'Order for pickup' },
+    hero: { ctaPrimary: 'See the menu', ctaSecondary: 'Find us' },
+    order: {
+      eyebrow: 'Order',
+      title: 'Order for pickup',
+      intro: 'Pick your items, choose a pickup time, and we\u2019ll have it ready.',
+    },
+    menu: { fullMenuLabel: 'View full menu' },
     visit: { eyebrow: 'Visit', title: 'Find your seat', subtitle: 'We are easy to find on Main Street, with parking on the cross streets.' },
     contact: { title: 'Reservations & questions' },
   },
